@@ -1,5 +1,3 @@
-var spo = require('svg-path-outline');
-
 var data = {
 	const: {
 		seatDelta: 2
