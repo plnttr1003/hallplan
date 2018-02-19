@@ -3,6 +3,8 @@ var data = {
 		seatDelta: 2 // количество кресел между рядами
 	},
 	levelName: '',
+	subLevelName: null,
+	subLevelClass: null,
 	betweenPlaces: [],
 	coordinates: {x:[], y:[]},
 	seatSize: 0,
@@ -37,7 +39,6 @@ var main = {
 					//console.log('SEATS ===', data.seatsByLevel);
 					main.drawPath(seats, el.colors[i % el.colors.length]);
 					main.drawUses(seats, el.colors[i % el.colors.length]);
-					//main.dividePaths(); Разделить пути на части
 					//main.groupPathsBySectors(); Объединить по секторам
 					// Нужно будет каждую линию отофсеттить на ширину data.betweenPlaces.
 					// Разбить на блоки секторов. И посеторно сгруппировать
@@ -154,16 +155,18 @@ var main = {
 				console.log('group Keys', Object.keys(data.sectors[sector]));
 				Object.keys(data.sectors[sector][group]).forEach(function(rows, i) {
 					var groupPath = [];
-					console.log(sector, group, rows, data.sectors[sector][group][rows].paths)
+					console.log('SECTOR ===', sector, group, rows, data.sectors[sector][group][rows].paths)
 					data.sectors[sector][group][rows].paths.forEach(function(path) {
 						//main.renderPath(path, el.colors[i % el.colors.length]);
 						groupPath.push(path.replace(/M /g, '').split(' L ').map(function(item) {
-							return item.split(' ').map(function(it){
-								return +it;
+							return item.split(' ').map(function(point) {
+								return +point;
 							})
 						}));
 					});
-					main.drawVerticalPaths(groupPath);
+					data.subLevelProps = `${sector} ${group} ${rows}`;
+					data.subLevelClass = `${sector} ${group}`;
+					main.drawVerticalPaths(groupPath, i);
 				});
 			});
 		});
@@ -171,7 +174,10 @@ var main = {
 	renderPath: function(path, color, fn) {
 		var pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 		pathEl.setAttribute('d', path);
-		pathEl.setAttribute('level-name', data.levelName);
+		pathEl.setAttribute('level-name', data.subLevelName ? data.subLevelName : data.levelName);
+		if (data.subLevelClass) {
+			pathEl.setAttribute('level-group-name', data.subLevelClass)
+		}
 		if (color) {
 			pathEl.setAttribute('style', `fill:none; stroke: ${color};`);
 		}
@@ -182,16 +188,17 @@ var main = {
 			fn(pathEl);
 		}
 	},
-	drawVerticalPaths: function(rows) {
+	drawVerticalPaths: function(rows, index, name) {
 		//console.log('drawVerticalPaths2 ===', rows);
 		var topPath = [];
 		var rightPath = [];
 		var bottomPath = [];
 		var leftPath = [];
+		var color = el.colors[index % el.colors.length];
 		rows.forEach(function(seats, k) {
 			seats.forEach(function(seat, i) {
 
-				console.log('SEATS LENGTH', seats.length);
+				//console.log('SEATS LENGTH', seats.length);
 				if (k === 0) {
 					topPath.push(seat);
 				}
@@ -207,10 +214,10 @@ var main = {
 		});
 		//main.drawPath(topPath.concat(rightPath, bottomPath.reverse(), leftPath.reverse()), '#f00', main.offset);
 
-		main.drawPath(topPath, '#f00', main.offset);
-		main.drawPath(bottomPath, '#f00', main.offset);
-		main.drawPath(leftPath, '#f00', main.offset);
-		main.drawPath(rightPath, '#f00', main.offset);
+		main.drawPath(topPath, color, main.offset);
+		main.drawPath(bottomPath, color, main.offset);
+		main.drawPath(leftPath, color, main.offset);
+		main.drawPath(rightPath, color, main.offset);
 	},
 	drawUse: function(x, y, fill) {
 		var useEl = document.createElementNS('http://www.w3.org/2000/svg', 'use');
