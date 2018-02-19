@@ -9,8 +9,12 @@ var data = {
 	coordinates: {x:[], y:[]},
 	seatSize: 0,
 	seatsByLevel: [],
-	sectors: {}
-}
+	sectors: {},
+	tempSector: {
+		rowLength: null,
+		count: -1
+	} // временная переменная-счетчик для сохранения количества сегментов
+};
 
 var el = {
 	svg: document.getElementById('svg'),
@@ -21,11 +25,6 @@ var main = {
 	start: function() {
 		console.log(hallplan);
 		hallplan.levels.forEach(function(level, i) {
-			//console.log('Level', level);
-			//console.log('Level id', level.name, level.id, '\n------------------------------------------');
-			//console.log('\n------------------------------------------');
-			//console.log('seatsByLevel', main.seatsByLevel(level));
-			//console.log('\n\n\n');
 			data.levelName = level.name;
 			data.seatsByLevel = main.seatsByLevel(level);
 			if (data.seatsByLevel) {
@@ -37,22 +36,23 @@ var main = {
 				var k = 1;
 				data.seatsByLevel.forEach(function(seats) {
 					//console.log('SEATS ===', data.seatsByLevel);
-					main.drawPath(seats, el.colors[i % el.colors.length]);
+					main.drawPath(seats, el.colors[i % el.colors.length], {fn:null, option:'combine'}); // сейчас нужна для формирования массива с секторами через main.drawPath() -- main.combine() см. параметры0
 					main.drawUses(seats, el.colors[i % el.colors.length]);
 					//main.groupPathsBySectors(); Объединить по секторам
 					// Нужно будет каждую линию отофсеттить на ширину data.betweenPlaces.
-					// Разбить на блоки секторов. И посеторно сгруппировать
+					// Разбить на блоки секторов. И повторно сгруппировать
 				});
 				//main.drawVerticalPaths(data.seatsByLevel); // по-старому
 			}
 		});
+		main.dividePaths();
 		main.drawOutlines();
-		main.downloadSvg();
+		u.downloadSvg();
 	},
 	setViewPortSize: function() {
 		el.svg.setAttribute('viewBox', `${(Math.min.apply(null, data.coordinates.x) - data.seatSize)} ${(Math.min.apply(null, data.coordinates.y) - data.seatSize)} ${Math.max.apply(null, data.coordinates.x)} ${Math.max.apply(null, data.coordinates.y)}`);
 	},
-	pushSectorPoints(points) {
+	pushSectorPoints: function(points) {
 		points.forEach(function(point, i) {
 			if (i > 0) {
 				data.tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -79,18 +79,17 @@ var main = {
 		}
 	},
 	createPath: function(points, moveTo, array, fn) { // создаем пути. Аргументы -- массив точек и флаг moveTo -- разрыв или целая линия
-		//console.log('moveTo', moveTo);
-		var index = 0;
 		var path = '';
 		if (!fn) {
 			var pathArr = [];
 			var plus = false;
 			moveTo.map(function(status, i) {
 				if (status) {
+					console.log(plus ? '' : (`${points[i]} ${points[i + 1]}`));
 					path += `${plus ? '' : 'M ' + points[i][0] + ' ' + points[i][1]} L ${points[i + 1][0]} ${points[i + 1][1]}`;
 					plus = true;
 				} else {
-					index += 1;
+					console.log(points[plus ? i + 1 : i]);
 					path += `M ${points[plus ? i + 1 : i][0]} ${points[plus ? i + 1 : i][1]} L ${points[plus ? i + 1 : i][0]} ${points[plus ? i + 1 : i][1]}`;
 					plus = false;
 				}
@@ -100,14 +99,16 @@ var main = {
 			});
 		} else if (fn) {
 			points.forEach(function(point, i){
-				path += `${i === 0 ? 'M' : 'L'} ${point[0]} ${point[1]}`;
+				path += `${i === 0 ? 'M' : 'L'} ${point[0]} ${point[1]}`; // ?????
 			});
 		}
 		return array ? pathArr : path;
 	},
-	drawPath: function(points, color, fn) {
+	drawPath: function(points, color, params) {
 		var paths = [];
 		var moveTo = [];
+		var fn = params && params.fn ? params.fn : null;
+		var option = params && params.option ? params.option : null;
 		if (Array.isArray(points)) {
 			var pathArr = [];
 			points.forEach(function(point, i) {
@@ -126,15 +127,20 @@ var main = {
 		} else {
 			paths.push(points);
 		}
-		if (fn) {
+		if (option === 'render') {
 			paths.forEach(function(path){
 				main.renderPath(path, color, fn);
-			})
-		} else {
-			main.combinePaths(paths);
+			});
+		} else if ((option === 'combine')) {
+			main.combinePaths(paths); // собрать все пути в объект
 		}
 	},
 	combinePaths: function(paths) {
+		if (data.tempSector.count === -1 || data.tempSector.rowLength !== paths.length) {
+			data.tempSector.count += 1;
+			data.tempSector.rowLength = paths.length;
+		}
+		var prevPathsLength = null;
 		if (!data.sectors[data.levelName]) {
 			data.sectors[data.levelName] = {};
 		}
@@ -142,31 +148,39 @@ var main = {
 			data.sectors[data.levelName][paths.length] = {};
 		}
 		paths.forEach(function(path, i) {
-			if (!data.sectors[data.levelName][paths.length][i]) {
-				data.sectors[data.levelName][paths.length][i] = {paths:[]}
-			}
-			data.sectors[data.levelName][paths.length][i].paths.push(path);
+			if (!data.sectors[data.levelName][paths.length][data.tempSector.count]) {
+				data.sectors[data.levelName][paths.length][data.tempSector.count] = {};
+			};
+			if (!data.sectors[data.levelName][paths.length][data.tempSector.count][i]) {
+				data.sectors[data.levelName][paths.length][data.tempSector.count][i] = {paths:[]};
+			};
+			data.sectors[data.levelName][paths.length][data.tempSector.count][i].paths.push(path);
 		});
 	},
+	dividePaths: function() {
+		console.log('data.sectors', data.sectors);
+	},
 	drawOutlines: function() {
-		//console.log('data.sectors', data.sectors);
 		Object.keys(data.sectors).forEach(function(sector) {
-			Object.keys(data.sectors[sector]).forEach(function(group) {
-				console.log('group Keys', Object.keys(data.sectors[sector]));
-				Object.keys(data.sectors[sector][group]).forEach(function(rows, i) {
-					var groupPath = [];
-					console.log('SECTOR ===', sector, group, rows, data.sectors[sector][group][rows].paths)
-					data.sectors[sector][group][rows].paths.forEach(function(path) {
-						//main.renderPath(path, el.colors[i % el.colors.length]);
-						groupPath.push(path.replace(/M /g, '').split(' L ').map(function(item) {
-							return item.split(' ').map(function(point) {
-								return +point;
-							})
-						}));
+			Object.keys(data.sectors[sector]).forEach(function(sectorRow) {
+				console.log('sectorRow Keys', Object.keys(data.sectors[sector]));
+				Object.keys(data.sectors[sector][sectorRow]).forEach(function(sectorColumn) {
+					console.log('sectorColumn Keys', Object.keys(data.sectors[sector][sectorRow]));
+					Object.keys(data.sectors[sector][sectorRow][sectorColumn]).forEach(function(rows, i) {
+						var groupPath = [];
+						console.log('SECTOR ===', sector, sectorRow, sectorColumn, rows, data.sectors[sector][sectorRow][sectorColumn][rows].paths);
+						data.sectors[sector][sectorRow][sectorColumn][rows].paths.forEach(function(path) {
+							main.renderPath(path, el.colors[i % el.colors.length]);
+							groupPath.push(path.replace(/M /g, '').split(' L ').map(function(item) {
+								return item.split(' ').map(function(point) {
+									return +point;
+								})
+							}));
+						});
+						data.subLevelName = `${sector} ${sectorRow} ${sectorColumn} ${rows}`;
+						data.subLevelClass = `${sector} ${sectorRow} ${sectorColumn}`;
+						main.drawVerticalPaths(groupPath, i);
 					});
-					data.subLevelProps = `${sector} ${group} ${rows}`;
-					data.subLevelClass = `${sector} ${group}`;
-					main.drawVerticalPaths(groupPath, i);
 				});
 			});
 		});
@@ -185,11 +199,11 @@ var main = {
 			el.svg.appendChild(pathEl);
 		//}
 		if (fn) {
-			fn(pathEl);
+			fn(pathEl);  /// нужен ли колбек?
 		}
 	},
 	drawVerticalPaths: function(rows, index, name) {
-		//console.log('drawVerticalPaths2 ===', rows);
+		console.log('drawVerticalPaths2 ===', rows);
 		var topPath = [];
 		var rightPath = [];
 		var bottomPath = [];
@@ -197,8 +211,6 @@ var main = {
 		var color = el.colors[index % el.colors.length];
 		rows.forEach(function(seats, k) {
 			seats.forEach(function(seat, i) {
-
-				//console.log('SEATS LENGTH', seats.length);
 				if (k === 0) {
 					topPath.push(seat);
 				}
@@ -212,12 +224,12 @@ var main = {
 				}
 			});
 		});
-		//main.drawPath(topPath.concat(rightPath, bottomPath.reverse(), leftPath.reverse()), '#f00', main.offset);
+		main.drawPath(topPath.concat(rightPath, bottomPath.reverse(), leftPath.reverse()), color, {fn:main.offset, option:'render'});
 
-		main.drawPath(topPath, color, main.offset);
-		main.drawPath(bottomPath, color, main.offset);
-		main.drawPath(leftPath, color, main.offset);
-		main.drawPath(rightPath, color, main.offset);
+		//main.drawPath(topPath, color, {fn:main.offset, option:'render'});
+		//main.drawPath(bottomPath, color, {fn:main.offset, option:'render'});
+		//main.drawPath(leftPath, color, {fn:main.offset, option:'render'});
+		//main.drawPath(rightPath, color, {fn:main.offset, option:'render'});
 	},
 	drawUse: function(x, y, fill) {
 		var useEl = document.createElementNS('http://www.w3.org/2000/svg', 'use');
@@ -237,36 +249,6 @@ var main = {
 		//console.log('OUTLINE', outline);
 		//main.drawPath(outline, '#f67f00');
 	},
-	downloadSvg: function() {
-		document.getElementById('btnSave').onclick = function() {
-			var stringTofile = document.getElementById('svgContainer').innerHTML;
-			console.log(stringTofile);
-			if ('Blob' in window) {
-				var fileName = 'test.svg';
-				if (stringTofile != '') {
-					var textFileAsBlob = new Blob([stringTofile], { type: 'image/svg+xml' });
-					if ('msSaveOrOpenBlob' in navigator) {
-						navigator.msSaveOrOpenBlob(textFileAsBlob, fileName);
-					} else {
-						var downloadLink = document.createElement('a');
-						downloadLink.download = fileName;
-						downloadLink.innerHTML = 'Download File';
-						if ('webkitURL' in window) {
-							downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
-						} else {
-							downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
-							downloadLink.onclick = destroyClickedElement;
-							downloadLink.style.display = 'none';
-							document.body.appendChild(downloadLink);
-						}
-						downloadLink.click();
-					}
-				}
-			} else {
-				alert('Your browser does not support the HTML5 Blob.');
-			}
-		};
-	}
 };
 
 document.addEventListener('DOMContentLoaded', main.start);
