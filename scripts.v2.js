@@ -34,14 +34,15 @@ var main = {
 				main.setViewPortSize();
 				var k = 1;
 				data.seatsByLevel.forEach(function(seats) {
+					//console.log('SEATS ===', data.seatsByLevel);
 					main.drawPath(seats, el.colors[i % el.colors.length]);
-					//main.drawUses(seats, el.colors[i % el.colors.length]);
+					main.drawUses(seats, el.colors[i % el.colors.length]);
 					//main.dividePaths(); Разделить пути на части
 					//main.groupPathsBySectors(); Объединить по секторам
 					// Нужно будет каждую линию отофсеттить на ширину data.betweenPlaces.
 					// Разбить на блоки секторов. И посеторно сгруппировать
 				});
-				//main.drawVerticalPaths(data.seatsByLevel);
+				//main.drawVerticalPaths(data.seatsByLevel); // по-старому
 			}
 		});
 		main.drawOutlines();
@@ -77,27 +78,29 @@ var main = {
 		}
 	},
 	createPath: function(points, moveTo, array, fn) { // создаем пути. Аргументы -- массив точек и флаг moveTo -- разрыв или целая линия
+		//console.log('moveTo', moveTo);
 		var index = 0;
 		var path = '';
 		if (!fn) {
 			var pathArr = [];
-		}
-		var plus = false;
-		moveTo.map(function(status, i) {
-			if (status) {
-				path += `${plus ? '' : 'M ' + points[i][0] + ' ' + points[i][1]} L ${points[i + 1][0]} ${points[i + 1][1]}`;
-				plus = true;
-			} else {
-				index += 1;
-				path += `M ${points[plus ? i + 1 : i][0]} ${points[plus ? i + 1 : i][1]} L ${points[plus ? i + 1 : i][0]} ${points[plus ? i + 1 : i][1]}`;
-				plus = false;
-			}
-		});
-		if (!fn) {
+			var plus = false;
+			moveTo.map(function(status, i) {
+				if (status) {
+					path += `${plus ? '' : 'M ' + points[i][0] + ' ' + points[i][1]} L ${points[i + 1][0]} ${points[i + 1][1]}`;
+					plus = true;
+				} else {
+					index += 1;
+					path += `M ${points[plus ? i + 1 : i][0]} ${points[plus ? i + 1 : i][1]} L ${points[plus ? i + 1 : i][0]} ${points[plus ? i + 1 : i][1]}`;
+					plus = false;
+				}
+			});
 			pathArr = path.split('M ').slice(1).map(function(item) {
 				return 'M ' + item;
 			});
-			//console.log('pathArr', pathArr); // dividedPATH
+		} else if (fn) {
+			points.forEach(function(point, i){
+				path += `${i === 0 ? 'M' : 'L'} ${point[0]} ${point[1]}`;
+			});
 		}
 		return array ? pathArr : path;
 	},
@@ -142,21 +145,27 @@ var main = {
 				data.sectors[data.levelName][paths.length][i] = {paths:[]}
 			}
 			data.sectors[data.levelName][paths.length][i].paths.push(path);
-		})
+		});
 	},
 	drawOutlines: function() {
-		console.log('DATA SECTORS ===', data.sectors);
+		//console.log('data.sectors', data.sectors);
 		Object.keys(data.sectors).forEach(function(sector) {
-			console.log(sector, data.sectors[sector]);
 			Object.keys(data.sectors[sector]).forEach(function(group) {
-				//console.log(data.sectors[sector][group]);
+				console.log('group Keys', Object.keys(data.sectors[sector]));
 				Object.keys(data.sectors[sector][group]).forEach(function(rows, i) {
-					console.log(rows, data.sectors[sector][group][rows]);
+					var groupPath = [];
+					console.log(sector, group, rows, data.sectors[sector][group][rows].paths)
 					data.sectors[sector][group][rows].paths.forEach(function(path) {
-						main.renderPath(path, el.colors[i % el.colors.length])
-					})
-				})
-			})
+						//main.renderPath(path, el.colors[i % el.colors.length]);
+						groupPath.push(path.replace(/M /g, '').split(' L ').map(function(item) {
+							return item.split(' ').map(function(it){
+								return +it;
+							})
+						}));
+					});
+					main.drawVerticalPaths(groupPath);
+				});
+			});
 		});
 	},
 	renderPath: function(path, color, fn) {
@@ -174,12 +183,15 @@ var main = {
 		}
 	},
 	drawVerticalPaths: function(rows) {
+		//console.log('drawVerticalPaths2 ===', rows);
 		var topPath = [];
 		var rightPath = [];
 		var bottomPath = [];
 		var leftPath = [];
-		rows.forEach(function(seats, k){
+		rows.forEach(function(seats, k) {
 			seats.forEach(function(seat, i) {
+
+				console.log('SEATS LENGTH', seats.length);
 				if (k === 0) {
 					topPath.push(seat);
 				}
@@ -193,7 +205,12 @@ var main = {
 				}
 			});
 		});
-		main.drawPath(topPath.concat(rightPath, bottomPath.reverse(), leftPath.reverse()), '#f00', main.offset);
+		//main.drawPath(topPath.concat(rightPath, bottomPath.reverse(), leftPath.reverse()), '#f00', main.offset);
+
+		main.drawPath(topPath, '#f00', main.offset);
+		main.drawPath(bottomPath, '#f00', main.offset);
+		main.drawPath(leftPath, '#f00', main.offset);
+		main.drawPath(rightPath, '#f00', main.offset);
 	},
 	drawUse: function(x, y, fill) {
 		var useEl = document.createElementNS('http://www.w3.org/2000/svg', 'use');
