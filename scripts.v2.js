@@ -12,8 +12,8 @@ var data = {
 	sectors: {},
 	tempSector: {
 		rowLength: null,
-		count: -1
-	} // временная переменная-счетчик для сохранения количества сегментов
+		count: -1 // временная переменная-счетчик для сохранения количества сегментов
+	}
 };
 
 var el = {
@@ -45,7 +45,6 @@ var main = {
 				//main.drawVerticalPaths(data.seatsByLevel); // по-старому
 			}
 		});
-		main.dividePaths();
 		main.drawOutlines();
 		u.downloadSvg();
 	},
@@ -136,6 +135,12 @@ var main = {
 		}
 	},
 	combinePaths: function(paths) {
+		 //
+		 // Группируем пути в блоки по количесту "проходов" между ними
+		 // Схема объекта такова [sector][sectorCount][sectorRow][sectorColumn].path
+		 // Используем [sectorRow][sectorColumn], чтобы группировались только соседние группы рядов.
+		 // Это позволяет избежать захвата сектора через группу с другим количеством "проходов"
+		 //
 		if (data.tempSector.count === -1 || data.tempSector.rowLength !== paths.length) {
 			data.tempSector.count += 1;
 			data.tempSector.rowLength = paths.length;
@@ -156,9 +161,6 @@ var main = {
 			};
 			data.sectors[data.levelName][paths.length][data.tempSector.count][i].paths.push(path);
 		});
-	},
-	dividePaths: function() {
-		console.log('data.sectors', data.sectors);
 	},
 	drawOutlines: function() {
 		Object.keys(data.sectors).forEach(function(sector) {
