@@ -21,9 +21,13 @@ var el = {
 	colors: ['#7549af', '#99ff66', '#cc33cc', '#667699', '#330099', '#cc9900', '#cc0099', '#3399cc', '#7589af', '#34ffb6', '#1d54cc', '#9bf769', '#abcd99', '#c69750', '#cdfe49', '#3f3d2c']
 };
 
+// offset(smooth, distance);
+// checkDelta() // для проверки Z - секторов и группировки в новые ряды
+
+
 var main = {
 	start: function() {
-		console.log(hallplan);
+		//console.log(hallplan);
 		hallplan.levels.forEach(function(level, i) {
 			data.levelName = level.name;
 			data.seatsByLevel = main.seatsByLevel(level);
@@ -37,10 +41,7 @@ var main = {
 				data.seatsByLevel.forEach(function(seats) {
 					//console.log('SEATS ===', data.seatsByLevel);
 					main.drawPath(seats, el.colors[i % el.colors.length], {fn:null, option:'combine'}); // сейчас нужна для формирования массива с секторами через main.drawPath() -- main.combine() см. параметры0
-					main.drawUses(seats, el.colors[i % el.colors.length]);
-					//main.groupPathsBySectors(); Объединить по секторам
-					// Нужно будет каждую линию отофсеттить на ширину data.betweenPlaces.
-					// Разбить на блоки секторов. И повторно сгруппировать
+					//main.drawUses(seats, el.colors[i % el.colors.length]);
 				});
 				//main.drawVerticalPaths(data.seatsByLevel); // по-старому
 			}
@@ -84,11 +85,11 @@ var main = {
 			var plus = false;
 			moveTo.map(function(status, i) {
 				if (status) {
-					console.log(plus ? '' : (`${points[i]} ${points[i + 1]}`));
+					//console.log(plus ? '' : (`${points[i]} ${points[i + 1]}`));
 					path += `${plus ? '' : 'M ' + points[i][0] + ' ' + points[i][1]} L ${points[i + 1][0]} ${points[i + 1][1]}`;
 					plus = true;
 				} else {
-					console.log(points[plus ? i + 1 : i]);
+					//console.log(points[plus ? i + 1 : i]);
 					path += `M ${points[plus ? i + 1 : i][0]} ${points[plus ? i + 1 : i][1]} L ${points[plus ? i + 1 : i][0]} ${points[plus ? i + 1 : i][1]}`;
 					plus = false;
 				}
@@ -135,12 +136,12 @@ var main = {
 		}
 	},
 	combinePaths: function(paths) {
-		 //
-		 // Группируем пути в блоки по количесту "проходов" между ними
-		 // Схема объекта такова [sector][sectorCount][sectorRow][sectorColumn].path
-		 // Используем [sectorRow][sectorColumn], чтобы группировались только соседние группы рядов.
-		 // Это позволяет избежать захвата сектора через группу с другим количеством "проходов"
-		 //
+			//
+			// Группируем пути в блоки по количесту "проходов" между ними
+			// Схема объекта такова [sector][sectorCount][sectorRow][sectorColumn].path
+			// Используем [sectorRow][sectorColumn], чтобы группировались только соседние группы рядов.
+			// Это позволяет избежать захвата сектора через группу с другим количеством "проходов"
+			//
 		if (data.tempSector.count === -1 || data.tempSector.rowLength !== paths.length) {
 			data.tempSector.count += 1;
 			data.tempSector.rowLength = paths.length;
@@ -165,22 +166,25 @@ var main = {
 	drawOutlines: function() {
 		Object.keys(data.sectors).forEach(function(sector) {
 			Object.keys(data.sectors[sector]).forEach(function(sectorRow) {
-				console.log('sectorRow Keys', Object.keys(data.sectors[sector]));
+				//console.log('sectorRow Keys', Object.keys(data.sectors[sector]));
 				Object.keys(data.sectors[sector][sectorRow]).forEach(function(sectorColumn) {
-					console.log('sectorColumn Keys', Object.keys(data.sectors[sector][sectorRow]));
+					//console.log('sectorColumn Keys', Object.keys(data.sectors[sector][sectorRow]));
 					Object.keys(data.sectors[sector][sectorRow][sectorColumn]).forEach(function(rows, i) {
 						var groupPath = [];
-						console.log('SECTOR ===', sector, sectorRow, sectorColumn, rows, data.sectors[sector][sectorRow][sectorColumn][rows].paths);
+						//console.log('SECTOR ===', sector, sectorRow, sectorColumn, rows, data.sectors[sector][sectorRow][sectorColumn][rows].paths);
 						data.sectors[sector][sectorRow][sectorColumn][rows].paths.forEach(function(path) {
-							main.renderPath(path, el.colors[i % el.colors.length]);
+							main.renderPath(path, el.colors[i % el.colors.length]); // рендерим пути между секторами
+							//console.log('path', path);
 							groupPath.push(path.replace(/M /g, '').split(' L ').map(function(item) {
 								return item.split(' ').map(function(point) {
 									return +point;
 								})
 							}));
+							data.subLevelName = `${sector} ${sectorRow} ${sectorColumn} ${rows}`;
+							data.subLevelClass = `${sector} ${sectorRow} ${sectorColumn}`;
 						});
-						data.subLevelName = `${sector} ${sectorRow} ${sectorColumn} ${rows}`;
-						data.subLevelClass = `${sector} ${sectorRow} ${sectorColumn}`;
+						console.log(sector, sectorRow);
+						//if (sector === 'Партер А' && sectorRow === '1') main.drawVerticalPaths(groupPath, i);
 						main.drawVerticalPaths(groupPath, i);
 					});
 				});
@@ -205,7 +209,12 @@ var main = {
 		}
 	},
 	drawVerticalPaths: function(rows, index, name) {
-		console.log('drawVerticalPaths2 ===', rows);
+
+		console.log('///////////////////////');
+		console.log('rows', rows);
+		console.log('rows.length - 1', rows.length - 1);
+		console.log('///////////////////////');
+
 		var topPath = [];
 		var rightPath = [];
 		var bottomPath = [];
@@ -215,23 +224,22 @@ var main = {
 			seats.forEach(function(seat, i) {
 				if (k === 0) {
 					topPath.push(seat);
+					console.log('topPath', topPath);
 				}
 				if (k === rows.length - 1) {
 					bottomPath.push(seat);
+					console.log('bottomPath', bottomPath);
 				}
 				if (i === 0) {
 					leftPath.push(seat);
+					console.log('leftPath', leftPath);
 				} else if (i === seats.length - 1) {
 					rightPath.push(seat);
+					console.log('rightPath', rightPath);
 				}
 			});
 		});
 		main.drawPath(topPath.concat(rightPath, bottomPath.reverse(), leftPath.reverse()), color, {fn:main.offset, option:'render'});
-
-		//main.drawPath(topPath, color, {fn:main.offset, option:'render'});
-		//main.drawPath(bottomPath, color, {fn:main.offset, option:'render'});
-		//main.drawPath(leftPath, color, {fn:main.offset, option:'render'});
-		//main.drawPath(rightPath, color, {fn:main.offset, option:'render'});
 	},
 	drawUse: function(x, y, fill) {
 		var useEl = document.createElementNS('http://www.w3.org/2000/svg', 'use');
@@ -245,6 +253,10 @@ var main = {
 		});
 	},
 	offset: function(path) {
+		// !!!
+		// TODO: Оффсет по секторам
+		// !!!
+
 		//console.log('PATH', path);
 		//var d = path.getAttribute('d');
 		//var outline = spo(d, 20, {bezierAccuracy: 0});
