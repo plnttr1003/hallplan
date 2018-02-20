@@ -23,7 +23,7 @@ var el = {
 
 // offset(smooth, distance);
 // checkDelta() // для проверки Z - секторов и группировки в новые ряды
-
+// setNumber() // на проделенной на одно место линии 1 < --------- > 1
 
 var main = {
 	start: function() {
@@ -115,14 +115,16 @@ var main = {
 				if (i < points.length - 1) {
 					data.tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 					data.tempPath.setAttribute('d', `M ${point[0]} ${point[1]} L ${points[i + 1][0]} ${points[i + 1][1]}`);
-					moveTo.push(data.tempPath.getTotalLength() < data.seatSize * data.const.seatDelta); // заполняем для проверки статуса
+					if (!fn) {
+						moveTo.push(data.tempPath.getTotalLength() < data.seatSize * data.const.seatDelta); // заполняем для проверки статуса
+					}
 				}
 				pathArr.push(point);
 			});
 			if (!fn) {
 				paths = main.createPath(pathArr, moveTo, true, fn);
 			} else {
-				paths.push(main.createPath(pathArr, moveTo, false, fn));
+				paths.push(main.createPath(pathArr, [], false, fn));
 			}
 		} else {
 			paths.push(points);
@@ -136,12 +138,17 @@ var main = {
 		}
 	},
 	combinePaths: function(paths) {
-			//
-			// Группируем пути в блоки по количесту "проходов" между ними
-			// Схема объекта такова [sector][sectorCount][sectorRow][sectorColumn].path
-			// Используем [sectorRow][sectorColumn], чтобы группировались только соседние группы рядов.
-			// Это позволяет избежать захвата сектора через группу с другим количеством "проходов"
-			//
+
+		//
+		// Группируем пути в блоки по количесту "проходов" между ними
+		// Схема объекта такова [sector][sectorCount][sectorRow][sectorColumn].path
+		// Используем [sectorRow][sectorColumn], чтобы группировались только соседние группы рядов.
+		// Это позволяет избежать захвата сектора через группу с другим количеством "проходов"
+		//
+
+		if (data.levelName === 'Партер А') {
+			console.log('PATHS ===', paths);
+		}
 		if (data.tempSector.count === -1 || data.tempSector.rowLength !== paths.length) {
 			data.tempSector.count += 1;
 			data.tempSector.rowLength = paths.length;
@@ -150,17 +157,17 @@ var main = {
 		if (!data.sectors[data.levelName]) {
 			data.sectors[data.levelName] = {};
 		}
-		if (!data.sectors[data.levelName][paths.length]) {
-			data.sectors[data.levelName][paths.length] = {};
+		if (!data.sectors[data.levelName][data.tempSector.rowLength]) {
+			data.sectors[data.levelName][data.tempSector.rowLength] = {};
 		}
 		paths.forEach(function(path, i) {
-			if (!data.sectors[data.levelName][paths.length][data.tempSector.count]) {
-				data.sectors[data.levelName][paths.length][data.tempSector.count] = {};
+			if (!data.sectors[data.levelName][data.tempSector.rowLength][data.tempSector.count]) {
+				data.sectors[data.levelName][data.tempSector.rowLength][data.tempSector.count] = {};
 			};
-			if (!data.sectors[data.levelName][paths.length][data.tempSector.count][i]) {
-				data.sectors[data.levelName][paths.length][data.tempSector.count][i] = {paths:[]};
+			if (!data.sectors[data.levelName][data.tempSector.rowLength][data.tempSector.count][i]) {
+				data.sectors[data.levelName][data.tempSector.rowLength][data.tempSector.count][i] = {paths:[]};
 			};
-			data.sectors[data.levelName][paths.length][data.tempSector.count][i].paths.push(path);
+			data.sectors[data.levelName][data.tempSector.rowLength][data.tempSector.count][i].paths.push(path);
 		});
 	},
 	drawOutlines: function() {
@@ -173,7 +180,7 @@ var main = {
 						var groupPath = [];
 						//console.log('SECTOR ===', sector, sectorRow, sectorColumn, rows, data.sectors[sector][sectorRow][sectorColumn][rows].paths);
 						data.sectors[sector][sectorRow][sectorColumn][rows].paths.forEach(function(path) {
-							main.renderPath(path, el.colors[i % el.colors.length]); // рендерим пути между секторами
+							//main.renderPath(path, el.colors[i % el.colors.length]); // рендерим пути секторов
 							//console.log('path', path);
 							groupPath.push(path.replace(/M /g, '').split(' L ').map(function(item) {
 								return item.split(' ').map(function(point) {
@@ -211,8 +218,8 @@ var main = {
 	drawVerticalPaths: function(rows, index, name) {
 
 		console.log('///////////////////////');
-		console.log('rows', rows);
-		console.log('rows.length - 1', rows.length - 1);
+		//console.log('rows', rows);
+		//console.log('rows.length - 1', rows.length - 1);
 		console.log('///////////////////////');
 
 		var topPath = [];
@@ -222,23 +229,27 @@ var main = {
 		var color = el.colors[index % el.colors.length];
 		rows.forEach(function(seats, k) {
 			seats.forEach(function(seat, i) {
+				console.log(rows.length , rows.length - 1);
+				console.log(seats.length, seats.length - 1, seat);
+
 				if (k === 0) {
 					topPath.push(seat);
-					console.log('topPath', topPath);
 				}
 				if (k === rows.length - 1) {
 					bottomPath.push(seat);
-					console.log('bottomPath', bottomPath);
 				}
 				if (i === 0) {
 					leftPath.push(seat);
-					console.log('leftPath', leftPath);
 				} else if (i === seats.length - 1) {
 					rightPath.push(seat);
-					console.log('rightPath', rightPath);
 				}
 			});
 		});
+		console.log('topPath', topPath);
+		console.log('bottomPath', bottomPath);
+		console.log('leftPath', leftPath);
+		console.log('rightPath', rightPath);
+
 		main.drawPath(topPath.concat(rightPath, bottomPath.reverse(), leftPath.reverse()), color, {fn:main.offset, option:'render'});
 	},
 	drawUse: function(x, y, fill) {
