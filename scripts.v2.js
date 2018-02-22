@@ -1,6 +1,7 @@
 var data = {
 	const: {
-		seatDelta: 2 // количество кресел между рядами
+		seatDelta: 2, // количество кресел между рядами
+		offset: 0
 	},
 	levelName: '',
 	subLevelName: null,
@@ -41,9 +42,8 @@ var main = {
 				data.seatsByLevel.forEach(function(seats) {
 					//console.log('SEATS ===', data.seatsByLevel);
 					main.drawPath(seats, el.colors[i % el.colors.length], {fn:null, option:'combine'}); // сейчас нужна для формирования массива с секторами через main.drawPath() -- main.combine() см. параметры0
-					//main.drawUses(seats, el.colors[i % el.colors.length]);
+					main.drawUses(seats, el.colors[i % el.colors.length]);
 				});
-				//main.drawVerticalPaths(data.seatsByLevel); // по-старому
 			}
 		});
 		main.drawOutlines();
@@ -182,11 +182,7 @@ var main = {
 						data.sectors[sector][sectorRow][sectorColumn][rows].paths.forEach(function(path) {
 							//main.renderPath(path, el.colors[i % el.colors.length]); // рендерим пути секторов
 							//console.log('path', path);
-							groupPath.push(path.replace(/M /g, '').split(' L ').map(function(item) {
-								return item.split(' ').map(function(point) {
-									return +point;
-								})
-							}));
+							u.pathToPoints(path, groupPath);
 							data.subLevelName = `${sector} ${sectorRow} ${sectorColumn} ${rows}`;
 							data.subLevelClass = `${sector} ${sectorRow} ${sectorColumn}`;
 						});
@@ -212,7 +208,7 @@ var main = {
 			el.svg.appendChild(pathEl);
 		//}
 		if (fn) {
-			fn(pathEl);  /// нужен ли колбек?
+			fn(path);  /// нужен ли колбек?
 		}
 	},
 	drawVerticalPaths: function(rows, index, name) {
@@ -264,6 +260,11 @@ var main = {
 		});
 	},
 	offset: function(path) {
+		console.log('PATHHH', path);
+		var offsetPath = [];
+		u.pathToPoints(path, offsetPath);
+
+		console.log('offset', offsetPath);
 		// !!!
 		// TODO: Оффсет по секторам
 		// !!!
@@ -273,7 +274,37 @@ var main = {
 		//var outline = spo(d, 20, {bezierAccuracy: 0});
 		//console.log('OUTLINE', outline);
 		//main.drawPath(outline, '#f67f00');
-	},
+
+    offsetArray.forEach(function(point, i) {
+    	var x1 = point[0];
+      var y1 = point[1];
+      var perpCrds = [];
+      var currentLength = 0;
+      var offsetFactor = 0;
+      //var hypotenuseLength = 0;
+      var x2 = i !== offsetArray.length - 1 ? offsetArray[i + 1][0] : offsetArray[0][0];
+      var y2 = i !== offsetArray.length - 1 ? offsetArray[i + 1][1] : offsetArray[0][1];
+      console.log(x1 - x2, y1 - y2, x2 - x1, y2 - y1);
+      console.log(Math.sqrt(Math.pow((x2 - x1), 2) + Math.pow((y2 - y1), 2))); // полифил для двух точек
+      currentLength = Math.sqrt(Math.pow((x2 - x1), 2) + Math.pow((y2 - y1), 2));
+      offsetFactor = currentLength / options.offset;
+      //hypotenuseLength = Math.sqrt(Math.pow(currentLength, 2) + Math.pow(options.offset, 2));
+   		//Math.sqrt(Math.pow(currentLength, 2) + Math.pow(options.offset, 2));
+
+      perpCrds = main.perp([x1, x2], [y1, y2], offsetFactor, true); // пока берем первую точку
+			main.drawLine([x1, y1], perpCrds, "#fc0");
+      main.drawUse(perpCrds[0], perpCrds[1], "#f00");
+
+      coordinatesArray.push(perpCrds);
+
+			perpCrds = main.perp([x2, x1], [y2, y1], offsetFactor);
+			main.drawLine([x2, y2], perpCrds, "#fcc");
+      main.drawUse(perpCrds[0], perpCrds[1], "#005eff");
+
+      coordinatesArray.push(perpCrds);
+  	})
+
+	}
 };
 
 document.addEventListener('DOMContentLoaded', main.start);
